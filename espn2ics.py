@@ -3,6 +3,7 @@
 import argparse
 import re
 import sys
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -69,6 +70,7 @@ ESPN_ROUTES = [
     ("rugby", "289237", "Women's Rugby World Cup"),
     ("rugby", "289262", "Major League Rugby"),
     ("rugby", "289234", "International Test Match"),
+    ("soccer", "club.friendly", "Club Friendly"),
 ]
 
 
@@ -337,6 +339,34 @@ def get_rugby_schedule(team_id, league_id, start_year=None, end_year=None):
 
 
 def get_schedule(sport, league, team_id, season):
+    """Retrieve the selected team's schedule.
+
+    Soccer teams can appear in multiple configured ESPN leagues. For soccer,
+    query each league's direct team schedule endpoint so --season is honored,
+    then merge the returned events. Other sports use the selected league.
+    """
+    if sport == "soccer":
+        schedules = []
+
+        for route_sport, route_league, route_name in ESPN_ROUTES:
+            if route_sport != "soccer":
+                continue
+
+            try:
+                params = {"season": season} if season else {}
+                url = (
+                    f"{SITE_BASE}/sports/{route_sport}/{route_league}/"
+                    f"teams/{team_id}/schedule"
+                )
+                schedule = get_json(url, params)
+            except RuntimeError:
+                continue
+
+            if schedule.get("events"):
+                schedules.append(schedule)
+
+        return merge_schedules(*schedules)
+
     schedule_getters = {
         "rugby": get_rugby_schedule,
     }
@@ -358,7 +388,6 @@ def get_schedule(sport, league, team_id, season):
         team_id,
         season,
     )
-
 
 def get_full_schedule(
     sport,
@@ -609,6 +638,15 @@ def parse_args():
         metavar="FILE",
         help="Create an iCalendar file; default filename is TEAM.ics.",
     )
+    parser.add_argument(
+        "--json",
+        nargs="?",
+        const="",
+        default=None,
+        metavar="FILE",
+        help="Create a JSON file in the json/ directory; default filename is TEAM.json.",
+    )
+
 
     return parser.parse_args()
 
@@ -700,10 +738,46 @@ def handle_schedule_result(events, args, team, sport, league, schedule):
     )
 
 
+
+
+
+
 def no_events_check(events):
     if not events:
         print("No events found.")
         sys.exit(0)
+
+
+
+def create_json_if_requested(args, team, sport, league, schedule):
+    if args.json is None:
+        return
+
+    json_dir = Path("json")
+    json_dir.mkdir(parents=True, exist_ok=True)
+
+    team_name = team.get("displayName") or team.get("name", "team")
+    filename = args.json or f"{team_name.replace(' ', '_')}.json"
+    filename = Path(filename).name
+    output_path = json_dir / filename
+
+    data = {
+        "team": {
+            "id": str(team.get("id", "")),
+            "name": team.get("displayName") or team.get("name", ""),
+        },
+        "sport": sport,
+        "league": league,
+        "events": schedule.get("events", []),
+    }
+
+    output_path.write_text(
+        json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+    print(f"Created JSON: {output_path}")
+
 
 
 def main():
@@ -738,6 +812,14 @@ def main():
     print_schedule(events)
 
     create_ical_if_requested(
+        args,
+        team,
+        sport,
+        league,
+        schedule,
+    )
+
+    create_json_if_requested(
         args,
         team,
         sport,
