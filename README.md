@@ -1,6 +1,6 @@
 # ESPN Schedule to iCalendar
 
-A small Python command-line tool for finding sports teams through ESPN and retrieving their schedules, with optional iCalendar output.
+A small Python command-line tool for finding sports teams through ESPN and retrieving their schedules, with optional iCalendar and JSON output.
 
 The goal is simple: give it a team name, let ESPN determine the team and competition, and get a usable schedule without having to manually know ESPN's internal league IDs.
 
@@ -68,17 +68,80 @@ python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
 
 This produces a standard iCalendar file containing the schedule, venue, sport, and league information.
 
+## JSON
+
+Create a JSON copy of the schedule:
+
+```bash
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
+```
+
+JSON files are automatically written to the `json/` directory using the team name:
+
+```text
+json/
+└── Portland_Timbers.json
+```
+
+A custom filename can also be specified:
+
+```bash
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json timbers.json
+```
+
+The JSON output is written to the file and is not printed to stdout.
+
 ## Seasons
 
 A season can be specified explicitly:
 
 ```bash
-python3 espn2ics.py     --team "Portland Pilots"     --sport basketball     --season 2026
+python3 espn2ics.py \
+    --team "Portland Pilots" \
+    --sport basketball \
+    --season 2026
 ```
 
 ESPN's season numbering is competition-dependent. For example, `season=2026` can return the 2025-26 NCAA men's basketball schedule.
 
+Historical seasons are supported when ESPN exposes them through the relevant schedule endpoint:
+
+```bash
+python3 espn2ics.py --team "Inter Miami" --sport soccer --season 2025
+```
+
 When no season is supplied, the script uses ESPN's current schedule data. If ESPN has the current season but has not populated any events yet, the script reports no events rather than silently substituting an older season.
+
+## Soccer
+
+Soccer requires some competition-specific handling because a team can appear in multiple ESPN soccer leagues or competitions.
+
+The script queries the configured soccer competition routes and merges the returned events. This allows teams to have schedules from competitions such as:
+
+```text
+English Premier League
+La Liga
+Bundesliga
+Serie A
+Ligue 1
+Eredivisie
+Primeira Liga
+Scottish Premiership
+Belgian Pro League
+Turkish Super Lig
+MLS
+NWSL
+Liga MX
+UEFA Champions League
+UEFA Europa League
+UEFA Conference League
+Club Friendly
+...
+```
+
+This is particularly useful for clubs such as Manchester City, where league matches and Club Friendly matches may be exposed through different ESPN routes.
+
+Postseason and playoff events are included when ESPN returns them as part of the selected season.
 
 ## Rugby
 
@@ -149,6 +212,8 @@ sort_events()
 print_schedule()
     ↓
 create_ical_if_requested()
+    ↓
+create_json_if_requested()
 ```
 
 Sport-specific API differences are kept inside the schedule retrieval layer rather than spreading ESPN-specific conditionals through `main()`.
@@ -183,6 +248,12 @@ python3 espn2ics.py --team "Boston Bruins" --sport hockey
 # Rugby
 python3 espn2ics.py --team "New Zealand" --sport rugby
 
+# Historical soccer season
+python3 espn2ics.py --team "Inter Miami" --sport soccer --season 2025
+
 # iCalendar
 python3 espn2ics.py --team "Liverpool" --ical
+
+# JSON
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
