@@ -4,12 +4,12 @@ A small Python command-line tool for finding sports teams through ESPN and retri
 
 The goal is simple: give it a team name, let ESPN determine the team and competition, and get a usable schedule without having to manually know ESPN's internal league IDs.
 
-## `espn11.2.py`
+## `espn2ics.py`
 
 Searches the currently supported ESPN sports and retrieves a team's schedule.
 
 ```bash
-python3 espn11.2.py --team "Liverpool"
+python3 espn2ics.py --team "Liverpool"
 ```
 
 Example:
@@ -35,8 +35,8 @@ Found 37 event(s).
 Use it when a team name is shared by multiple sports:
 
 ```bash
-python3 espn11.2.py --team "Oregon Ducks" --sport football
-python3 espn11.2.py --team "Oregon Ducks" --sport baseball
+python3 espn2ics.py --team "Oregon Ducks" --sport football
+python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 ```
 
 Currently supported sports:
@@ -57,13 +57,13 @@ Without `--sport`, the script searches all configured leagues and uses the best 
 Create an `.ics` file:
 
 ```bash
-python3 espn11.2.py --team "Liverpool" --ical
+python3 espn2ics.py --team "Liverpool" --ical
 ```
 
 Specify the filename:
 
 ```bash
-python3 espn11.2.py --team "Liverpool" --ical Liverpool.ics
+python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
 ```
 
 This produces a standard iCalendar file containing the schedule, venue, sport, and league information.
@@ -73,7 +73,7 @@ This produces a standard iCalendar file containing the schedule, venue, sport, a
 A season can be specified explicitly:
 
 ```bash
-python3 espn11.2.py     --team "Portland Pilots"     --sport basketball     --season 2026
+python3 espn2ics.py     --team "Portland Pilots"     --sport basketball     --season 2026
 ```
 
 ESPN's season numbering is competition-dependent. For example, `season=2026` can return the 2025-26 NCAA men's basketball schedule.
@@ -89,7 +89,7 @@ For rugby, the script instead queries the competition scoreboard endpoint over c
 Example:
 
 ```bash
-python3 espn11.2.py --team "New Zealand" --sport rugby
+python3 espn2ics.py --team "New Zealand" --sport rugby
 ```
 
 This supports ESPN rugby competitions including:
@@ -128,7 +128,7 @@ python3 -m pip install requests icalendar
 Then run:
 
 ```bash
-python3 espn11.2.py --help
+python3 espn2ics.py --help
 ```
 
 ## Pipeline
@@ -163,26 +163,26 @@ ESPN's endpoints are not guaranteed to remain stable. Some competitions use diff
 
 ```bash
 # EPL
-python3 espn11.2.py --team "Liverpool"
+python3 espn2ics.py --team "Liverpool"
 
 # NCAA football
-python3 espn11.2.py --team "Oregon Ducks" --sport football
+python3 espn2ics.py --team "Oregon Ducks" --sport football
 
 # NCAA baseball
-python3 espn11.2.py --team "Oregon Ducks" --sport baseball
+python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 
 # NWSL
-python3 espn11.2.py --team "Portland Thorns" --sport soccer
+python3 espn2ics.py --team "Portland Thorns" --sport soccer
 
 # WNBA
-python3 espn11.2.py --team "Portland Fire" --sport basketball
+python3 espn2ics.py --team "Portland Fire" --sport basketball
 
 # NHL
-python3 espn11.2.py --team "Boston Bruins" --sport hockey
+python3 espn2ics.py --team "Boston Bruins" --sport hockey
 
 # Rugby
-python3 espn11.2.py --team "New Zealand" --sport rugby
+python3 espn2ics.py --team "New Zealand" --sport rugby
 
 # iCalendar
-python3 espn11.2.py --team "Liverpool" --ical
+python3 espn2ics.py --team "Liverpool" --ical
 ```
