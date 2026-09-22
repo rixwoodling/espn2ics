@@ -4,7 +4,7 @@ import argparse
 import re
 import sys
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 import requests
@@ -14,6 +14,7 @@ from icalendar import Calendar, Event
 SITE_BASE = "https://site.api.espn.com/apis/site/v2"
 WEB_BASE = "https://site.web.api.espn.com/apis/site/v2"
 TIMEOUT = 20
+API_PINGS = 0
 
 # Search routes. The user never specifies a sport.
 ESPN_ROUTES = [
@@ -75,6 +76,8 @@ ESPN_ROUTES = [
 
 
 def get_json(url, params=None):
+    global API_PINGS
+    API_PINGS += 1
     try:
         r = requests.get(url, params=params, timeout=TIMEOUT)
         r.raise_for_status()
@@ -305,6 +308,8 @@ def get_rugby_schedule(team_id, league_id, start_year=None, end_year=None):
     seen_ids = set()
 
     for year in range(start_year, end_year + 1):
+        global API_PINGS
+        API_PINGS += 1
         response = requests.get(
             url,
             params={"dates": f"{year:04d}0101-{year:04d}1231"},
@@ -338,34 +343,62 @@ def get_rugby_schedule(team_id, league_id, start_year=None, end_year=None):
 
 
 
-def get_schedule(sport, league, team_id, season):
-    """Retrieve the selected team's schedule.
+def get_current_soccer_schedule(team_id):
+    """Retrieve the current/upcoming soccer schedule.
 
-    Soccer teams can appear in multiple configured ESPN leagues. For soccer,
-    query each league's direct team schedule endpoint so --season is honored,
-    then merge the returned events. Other sports use the selected league.
+    Use ESPN's cross-competition fixture schedule plus Club Friendly.
+    This is the default mode: callers can filter the returned events to
+    today and later without reconstructing the schedule from past scores.
     """
+    schedules = []
+
+    try:
+        schedule = get_full_schedule(
+            "soccer",
+            "",
+            team_id,
+            None,
+        )
+        if schedule.get("events"):
+            schedules.append(schedule)
+    except RuntimeError:
+        pass
+
+    # Club Friendly is not reliably exposed by the cross-competition
+    # "all" endpoint, so explicitly add it.
+    try:
+        url = (
+            f"{SITE_BASE}/sports/soccer/club.friendly/"
+            f"teams/{team_id}/schedule"
+        )
+        schedule = get_json(url)
+        if schedule.get("events"):
+            schedules.append(schedule)
+    except RuntimeError:
+        pass
+
+    return filter_current_events(merge_schedules(*schedules))
+
+
+def filter_current_events(schedule):
+    """Keep only events occurring today or later."""
+    today = datetime.now().astimezone().date()
+
+    events = []
+    for event in extract_events(schedule):
+        dt = parse_datetime(event.get("date"))
+        if dt is None:
+            continue
+        if dt.astimezone().date() >= today:
+            events.append(event)
+
+    return {"events": events}
+
+
+def get_schedule(sport, league, team_id):
+    """Retrieve today's and future events without scanning historical scores."""
     if sport == "soccer":
-        schedules = []
-
-        for route_sport, route_league, route_name in ESPN_ROUTES:
-            if route_sport != "soccer":
-                continue
-
-            try:
-                params = {"season": season} if season else {}
-                url = (
-                    f"{SITE_BASE}/sports/{route_sport}/{route_league}/"
-                    f"teams/{team_id}/schedule"
-                )
-                schedule = get_json(url, params)
-            except RuntimeError:
-                continue
-
-            if schedule.get("events"):
-                schedules.append(schedule)
-
-        return merge_schedules(*schedules)
+        return get_current_soccer_schedule(team_id)
 
     schedule_getters = {
         "rugby": get_rugby_schedule,
@@ -374,19 +407,18 @@ def get_schedule(sport, league, team_id, season):
     getter = schedule_getters.get(sport, get_full_schedule)
 
     if sport == "rugby":
-        season_year = int(season) if season else None
         return getter(
             team_id,
             league,
-            start_year=season_year,
-            end_year=(season_year + 1) if season_year else None,
+            start_year=datetime.now(timezone.utc).year,
+            end_year=datetime.now(timezone.utc).year + 1,
         )
 
     return getter(
         sport,
         league,
         team_id,
-        season,
+        None,
     )
 
 def get_full_schedule(
@@ -625,11 +657,6 @@ def parse_args():
         help="Limit the search to one sport.",
     )
 
-    parser.add_argument(
-        "--season",
-        metavar="YEAR",
-        help="Season year, e.g. 2026.",
-    )
 
     parser.add_argument(
         "--ical",
@@ -660,12 +687,6 @@ def print_team_info(result):
     print(f"Team ID: {team['id']}")
     print(f"Sport: {result['sport']}")
     print(f"League: {result['league_name']}")
-
-
-def print_season(season):
-    if season:
-        print(f"Season: {season}")
-
 
 def sort_events(schedule):
     return sorted(
@@ -796,13 +817,10 @@ def main():
     sport = result["sport"]
     league = result["league"]
 
-    print_season(args.season)
-
     schedule = get_schedule(
         sport,
         league,
         team["id"],
-        args.season,
     )
 
     events = sort_events(schedule)
@@ -826,6 +844,8 @@ def main():
         league,
         schedule,
     )
+
+    print(f"API requests: {API_PINGS}")
 
 
 if __name__ == "__main__":
