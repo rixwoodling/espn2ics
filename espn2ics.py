@@ -4,7 +4,7 @@ import argparse
 import re
 import sys
 import json
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from pathlib import Path
 
 import requests
@@ -45,32 +45,6 @@ ESPN_ROUTES = [
     ("soccer", "uefa.champions", "UEFA Champions League"),
     ("soccer", "uefa.europa", "UEFA Europa League"),
     ("soccer", "uefa.europa.conf", "UEFA Conference League"),
-    # Rugby competitions. Rugby uses scoreboard for schedules.
-    ("rugby", "268565", "British and Irish Lions Tour"),
-    ("rugby", "164205", "Rugby World Cup"),
-    ("rugby", "180659", "Six Nations"),
-    ("rugby", "244293", "The Rugby Championship"),
-    ("rugby", "271937", "European Rugby Champions Cup"),
-    ("rugby", "272073", "European Rugby Challenge Cup"),
-    ("rugby", "267979", "Gallagher Prem"),
-    ("rugby", "270557", "United Rugby Championship"),
-    ("rugby", "270559", "French Top 14"),
-    ("rugby", "2009", "URBA Primera A"),
-    ("rugby", "17567", "Nations Championship"),
-    ("rugby", "242041", "Super Rugby Pacific"),
-    ("rugby", "289271", "Super Rugby Aotearoa"),
-    ("rugby", "289272", "Super Rugby AU"),
-    ("rugby", "289277", "Super Rugby Trans-Tasman"),
-    ("rugby", "289279", "URBA Top 14"),
-    ("rugby", "270555", "Currie Cup"),
-    ("rugby", "270563", "Mitre 10 Cup"),
-    ("rugby", "236461", "Anglo-Welsh Cup"),
-    ("rugby", "289274", "2020 Tri Nations"),
-    ("rugby", "282", "Olympic Men's 7s"),
-    ("rugby", "283", "Olympic Women's Rugby Sevens"),
-    ("rugby", "289237", "Women's Rugby World Cup"),
-    ("rugby", "289262", "Major League Rugby"),
-    ("rugby", "289234", "International Test Match"),
     ("soccer", "club.friendly", "Club Friendly"),
 ]
 
@@ -287,62 +261,6 @@ def extract_events(data):
     return []
 
 
-def get_rugby_schedule(team_id, league_id, start_year=None, end_year=None):
-    """Retrieve rugby events through ESPN's scoreboard endpoint.
-
-    ESPN's rugby team schedule endpoint returns HTTP 500, while the
-    competition scoreboard endpoint works. ESPN also rejects overly large
-    date ranges, so query one calendar year at a time.
-    """
-    now = datetime.now(timezone.utc)
-
-    start_year = start_year or now.year
-    end_year = end_year or (now.year + 1)
-
-    url = (
-        f"https://site.api.espn.com/apis/site/v2/sports/"
-        f"rugby/{league_id}/scoreboard"
-    )
-
-    matched = []
-    seen_ids = set()
-
-    for year in range(start_year, end_year + 1):
-        global API_PINGS
-        API_PINGS += 1
-        response = requests.get(
-            url,
-            params={"dates": f"{year:04d}0101-{year:04d}1231"},
-            timeout=30,
-        )
-        response.raise_for_status()
-
-        data = response.json()
-
-        for event in data.get("events", []):
-            event_id = event.get("id")
-
-            if event_id in seen_ids:
-                continue
-
-            participants = []
-
-            for competition in event.get("competitions", []):
-                for competitor in competition.get("competitors", []):
-                    competitor_team = competitor.get("team", {})
-                    competitor_id = competitor_team.get("id")
-
-                    if competitor_id is not None:
-                        participants.append(str(competitor_id))
-
-            if str(team_id) in participants:
-                matched.append(event)
-                seen_ids.add(event_id)
-
-    return {"events": matched}
-
-
-
 def get_current_soccer_schedule(team_id):
     """Retrieve the current/upcoming soccer schedule.
 
@@ -400,26 +318,23 @@ def get_schedule(sport, league, team_id):
     if sport == "soccer":
         return get_current_soccer_schedule(team_id)
 
-    schedule_getters = {
-        "rugby": get_rugby_schedule,
-    }
+    if sport == "basketball" and league == "nba":
+        return get_current_nba_schedule(team_id)
 
-    getter = schedule_getters.get(sport, get_full_schedule)
+    if sport == "hockey" and league == "nhl":
+        return get_current_hockey_schedule(team_id)
 
-    if sport == "rugby":
-        return getter(
-            team_id,
-            league,
-            start_year=datetime.now(timezone.utc).year,
-            end_year=datetime.now(timezone.utc).year + 1,
-        )
-
-    return getter(
+    schedule = get_full_schedule(
         sport,
         league,
         team_id,
         None,
     )
+
+    if sport in {"football", "basketball", "hockey", "baseball"}:
+        return filter_current_events(schedule)
+
+    return schedule
 
 def get_full_schedule(
     sport,
@@ -441,7 +356,7 @@ def get_full_schedule(
     then fall back to the normal team schedule endpoint.
 
     For non-soccer sports, the normal team schedule endpoint is
-    the appropriate full-season endpoint.
+    used unless the sport has a dedicated season-type handler.
     """
     params = {}
 
