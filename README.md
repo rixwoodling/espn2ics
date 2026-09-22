@@ -1,15 +1,17 @@
 # ESPN Schedule to iCalendar
 
-A small Python command-line tool for finding sports teams through ESPN and retrieving their schedules, with optional iCalendar and JSON output.
+A small Python command-line tool for finding sports teams through ESPN and retrieving their **current and upcoming schedules**, with optional iCalendar and JSON output.
 
-The goal is simple: give it a team name, let ESPN determine the team and competition, and get a usable schedule without having to manually know ESPN's internal league IDs.
+## `espn11.9.py`
 
-## `espn2ics.py`
+The script searches the supported ESPN sports and retrieves events from **today forward**. It does not require a season argument and does not scan historical scoreboard dates to reconstruct a schedule.
 
-Searches the currently supported ESPN sports and retrieves a team's schedule.
+The goal is simple: give it a team name, let ESPN determine the team and competition, and get a usable current/upcoming schedule without having to manually know ESPN's internal league IDs.
+
+### Basic usage
 
 ```bash
-python3 espn2ics.py --team "Liverpool"
+python3 espn11.9.py --team "Liverpool"
 ```
 
 Example:
@@ -26,17 +28,20 @@ Schedule:
 2026-08-29 04:30  Nottingham Forest at Liverpool  @ Anfield
 ...
 Found 37 event(s).
+API requests: 8
 ```
 
-### Sport selection
+The schedule is filtered to **today and future events**. Completed events are not included.
+
+## Sport selection
 
 `--sport` is optional.
 
 Use it when a team name is shared by multiple sports:
 
 ```bash
-python3 espn2ics.py --team "Oregon Ducks" --sport football
-python3 espn2ics.py --team "Oregon Ducks" --sport baseball
+python3 espn11.9.py --team "Oregon Ducks" --sport football
+python3 espn11.9.py --team "Oregon Ducks" --sport baseball
 ```
 
 Currently supported sports:
@@ -52,18 +57,31 @@ soccer
 
 Without `--sport`, the script searches all configured leagues and uses the best team match. If different ESPN team IDs match, it reports the ambiguity instead of guessing.
 
+## API request count
+
+The script reports the number of ESPN API requests made during each run:
+
+```text
+Found 37 event(s).
+API requests: 8
+```
+
+This makes it possible to measure and optimize the schedule lookup rather than blindly adding more endpoint calls.
+
+The goal is to retrieve useful schedule coverage with a small number of targeted requests. The script deliberately avoids scanning historical scoreboard dates just to reconstruct a current schedule.
+
 ## iCalendar
 
 Create an `.ics` file:
 
 ```bash
-python3 espn2ics.py --team "Liverpool" --ical
+python3 espn11.9.py --team "Liverpool" --ical
 ```
 
 Specify the filename:
 
 ```bash
-python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
+python3 espn11.9.py --team "Liverpool" --ical Liverpool.ics
 ```
 
 This produces a standard iCalendar file containing the schedule, venue, sport, and league information.
@@ -73,7 +91,7 @@ This produces a standard iCalendar file containing the schedule, venue, sport, a
 Create a JSON copy of the schedule:
 
 ```bash
-python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
+python3 espn11.9.py --team "Portland Timbers" --sport soccer --json
 ```
 
 JSON files are automatically written to the `json/` directory using the team name:
@@ -86,37 +104,18 @@ json/
 A custom filename can also be specified:
 
 ```bash
-python3 espn2ics.py --team "Portland Timbers" --sport soccer --json timbers.json
+python3 espn11.9.py --team "Portland Timbers" --sport soccer --json timbers.json
 ```
 
 The JSON output is written to the file and is not printed to stdout.
-
-## Seasons
-
-A season can be specified explicitly:
-
-```bash
-python3 espn2ics.py \
-    --team "Portland Pilots" \
-    --sport basketball \
-    --season 2026
-```
-
-ESPN's season numbering is competition-dependent. For example, `season=2026` can return the 2025-26 NCAA men's basketball schedule.
-
-Historical seasons are supported when ESPN exposes them through the relevant schedule endpoint:
-
-```bash
-python3 espn2ics.py --team "Inter Miami" --sport soccer --season 2025
-```
-
-When no season is supplied, the script uses ESPN's current schedule data. If ESPN has the current season but has not populated any events yet, the script reports no events rather than silently substituting an older season.
 
 ## Soccer
 
 Soccer requires some competition-specific handling because a team can appear in multiple ESPN soccer leagues or competitions.
 
-The script queries the configured soccer competition routes and merges the returned events. This allows teams to have schedules from competitions such as:
+For soccer, the script uses ESPN's broader schedule endpoints and configured competition routes, then merges and deduplicates the returned events. This is intended to capture league, cup, continental, playoff/knockout, and friendly fixtures when ESPN exposes them through its schedule data.
+
+Configured soccer competitions include:
 
 ```text
 English Premier League
@@ -141,7 +140,7 @@ Club Friendly
 
 This is particularly useful for clubs such as Manchester City, where league matches and Club Friendly matches may be exposed through different ESPN routes.
 
-Postseason and playoff events are included when ESPN returns them as part of the selected season.
+The script only keeps events from today forward. It does not walk backward through scoreboard dates looking for completed matches.
 
 ## Rugby
 
@@ -152,7 +151,7 @@ For rugby, the script instead queries the competition scoreboard endpoint over c
 Example:
 
 ```bash
-python3 espn2ics.py --team "New Zealand" --sport rugby
+python3 espn11.9.py --team "New Zealand" --sport rugby
 ```
 
 This supports ESPN rugby competitions including:
@@ -191,7 +190,7 @@ python3 -m pip install requests icalendar
 Then run:
 
 ```bash
-python3 espn2ics.py --help
+python3 espn11.9.py --help
 ```
 
 ## Pipeline
@@ -207,6 +206,8 @@ print_team_info()
     ↓
 get_schedule()
     ↓
+filter current/future events
+    ↓
 sort_events()
     ↓
 print_schedule()
@@ -214,6 +215,8 @@ print_schedule()
 create_ical_if_requested()
     ↓
 create_json_if_requested()
+    ↓
+print API request count
 ```
 
 Sport-specific API differences are kept inside the schedule retrieval layer rather than spreading ESPN-specific conditionals through `main()`.
@@ -222,38 +225,37 @@ Sport-specific API differences are kept inside the schedule retrieval layer rath
 
 This project uses ESPN's publicly accessible site/core API endpoints rather than an official paid developer API.
 
-ESPN's endpoints are not guaranteed to remain stable. Some competitions use different endpoints or expose incomplete current-season data. The script therefore treats team discovery and schedule retrieval separately and uses competition-specific handling where necessary.
+ESPN's endpoints are not guaranteed to remain stable. Some competitions use different endpoints or expose incomplete current/future data. The script therefore treats team discovery and schedule retrieval separately and uses competition-specific handling where necessary.
+
+Because this tool is designed as a **current/upcoming schedule finder**, it intentionally does not provide a `--season` option or attempt to reconstruct historical seasons.
 
 ## Examples
 
 ```bash
 # EPL
-python3 espn2ics.py --team "Liverpool"
+python3 espn11.9.py --team "Liverpool"
 
 # NCAA football
-python3 espn2ics.py --team "Oregon Ducks" --sport football
+python3 espn11.9.py --team "Oregon Ducks" --sport football
 
 # NCAA baseball
-python3 espn2ics.py --team "Oregon Ducks" --sport baseball
+python3 espn11.9.py --team "Oregon Ducks" --sport baseball
 
 # NWSL
-python3 espn2ics.py --team "Portland Thorns" --sport soccer
+python3 espn11.9.py --team "Portland Thorns" --sport soccer
 
 # WNBA
-python3 espn2ics.py --team "Portland Fire" --sport basketball
+python3 espn11.9.py --team "Portland Fire" --sport basketball
 
 # NHL
-python3 espn2ics.py --team "Boston Bruins" --sport hockey
+python3 espn11.9.py --team "Boston Bruins" --sport hockey
 
 # Rugby
-python3 espn2ics.py --team "New Zealand" --sport rugby
-
-# Historical soccer season
-python3 espn2ics.py --team "Inter Miami" --sport soccer --season 2025
+python3 espn11.9.py --team "New Zealand" --sport rugby
 
 # iCalendar
-python3 espn2ics.py --team "Liverpool" --ical
+python3 espn11.9.py --team "Liverpool" --ical
 
 # JSON
-python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
+python3 espn11.9.py --team "Portland Timbers" --sport soccer --json
 ```
