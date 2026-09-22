@@ -2,7 +2,7 @@
 
 A small Python command-line tool for finding sports teams through ESPN and retrieving their **current and upcoming schedules**, with optional iCalendar and JSON output.
 
-## `espn11.9.py`
+## `espn2ics.py`
 
 The script searches the supported ESPN sports and retrieves events from **today forward**. It does not require a season argument and does not scan historical scoreboard dates to reconstruct a schedule.
 
@@ -11,7 +11,7 @@ The goal is simple: give it a team name, let ESPN determine the team and competi
 ### Basic usage
 
 ```bash
-python3 espn11.9.py --team "Liverpool"
+python3 espn2ics.py --team "Liverpool"
 ```
 
 Example:
@@ -40,8 +40,8 @@ The schedule is filtered to **today and future events**. Completed events are no
 Use it when a team name is shared by multiple sports:
 
 ```bash
-python3 espn11.9.py --team "Oregon Ducks" --sport football
-python3 espn11.9.py --team "Oregon Ducks" --sport baseball
+python3 espn2ics.py --team "Oregon Ducks" --sport football
+python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 ```
 
 Currently supported sports:
@@ -51,9 +51,10 @@ baseball
 basketball
 football
 hockey
-rugby
 soccer
 ```
+
+Rugby is **not supported**.
 
 Without `--sport`, the script searches all configured leagues and uses the best team match. If different ESPN team IDs match, it reports the ambiguity instead of guessing.
 
@@ -75,13 +76,13 @@ The goal is to retrieve useful schedule coverage with a small number of targeted
 Create an `.ics` file:
 
 ```bash
-python3 espn11.9.py --team "Liverpool" --ical
+python3 espn2ics.py --team "Liverpool" --ical
 ```
 
 Specify the filename:
 
 ```bash
-python3 espn11.9.py --team "Liverpool" --ical Liverpool.ics
+python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
 ```
 
 This produces a standard iCalendar file containing the schedule, venue, sport, and league information.
@@ -91,7 +92,7 @@ This produces a standard iCalendar file containing the schedule, venue, sport, a
 Create a JSON copy of the schedule:
 
 ```bash
-python3 espn11.9.py --team "Portland Timbers" --sport soccer --json
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
 
 JSON files are automatically written to the `json/` directory using the team name:
@@ -104,7 +105,7 @@ json/
 A custom filename can also be specified:
 
 ```bash
-python3 espn11.9.py --team "Portland Timbers" --sport soccer --json timbers.json
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json timbers.json
 ```
 
 The JSON output is written to the file and is not printed to stdout.
@@ -142,36 +143,6 @@ This is particularly useful for clubs such as Manchester City, where league matc
 
 The script only keeps events from today forward. It does not walk backward through scoreboard dates looking for completed matches.
 
-## Rugby
-
-Rugby is handled differently from the other supported sports because ESPN's rugby team schedule endpoint returns HTTP 500.
-
-For rugby, the script instead queries the competition scoreboard endpoint over calendar-year ranges and filters the results to the selected team.
-
-Example:
-
-```bash
-python3 espn11.9.py --team "New Zealand" --sport rugby
-```
-
-This supports ESPN rugby competitions including:
-
-```text
-British and Irish Lions Tour
-Rugby World Cup
-Six Nations
-The Rugby Championship
-European Rugby Champions Cup
-European Rugby Challenge Cup
-Gallagher Prem
-United Rugby Championship
-French Top 14
-Super Rugby Pacific
-Major League Rugby
-International Test Match
-...
-```
-
 ## Installation
 
 Create a virtual environment:
@@ -190,7 +161,7 @@ python3 -m pip install requests icalendar
 Then run:
 
 ```bash
-python3 espn11.9.py --help
+python3 espn2ics.py --help
 ```
 
 ## Pipeline
@@ -233,29 +204,26 @@ Because this tool is designed as a **current/upcoming schedule finder**, it inte
 
 ```bash
 # EPL
-python3 espn11.9.py --team "Liverpool"
+python3 espn2ics.py --team "Liverpool"
 
 # NCAA football
-python3 espn11.9.py --team "Oregon Ducks" --sport football
+python3 espn2ics.py --team "Oregon Ducks" --sport football
 
 # NCAA baseball
-python3 espn11.9.py --team "Oregon Ducks" --sport baseball
+python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 
 # NWSL
-python3 espn11.9.py --team "Portland Thorns" --sport soccer
+python3 espn2ics.py --team "Portland Thorns" --sport soccer
 
 # WNBA
-python3 espn11.9.py --team "Portland Fire" --sport basketball
+python3 espn2ics.py --team "Portland Fire" --sport basketball
 
 # NHL
-python3 espn11.9.py --team "Boston Bruins" --sport hockey
-
-# Rugby
-python3 espn11.9.py --team "New Zealand" --sport rugby
+python3 espn2ics.py --team "Boston Bruins" --sport hockey
 
 # iCalendar
-python3 espn11.9.py --team "Liverpool" --ical
+python3 espn2ics.py --team "Liverpool" --ical
 
 # JSON
-python3 espn11.9.py --team "Portland Timbers" --sport soccer --json
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
