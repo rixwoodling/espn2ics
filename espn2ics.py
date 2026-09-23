@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""ESPN team schedule to JSON/iCalendar.
+
+v5 revised: NHL regular-season retrieval now discovers the current ESPN
+season from the Core API calendar and requests the full schedule with
+seasontype=2.
+"""
+
 import argparse
 import re
 import sys
@@ -10,9 +17,9 @@ from pathlib import Path
 import requests
 from icalendar import Calendar, Event
 
-
 SITE_BASE = "https://site.api.espn.com/apis/site/v2"
 WEB_BASE = "https://site.web.api.espn.com/apis/site/v2"
+CORE_BASE = "https://sports.core.api.espn.com/v2"
 TIMEOUT = 20
 API_PINGS = 0
 
@@ -48,7 +55,6 @@ ESPN_ROUTES = [
     ("soccer", "club.friendly", "Club Friendly"),
 ]
 
-
 def get_json(url, params=None):
     global API_PINGS
     API_PINGS += 1
@@ -61,7 +67,6 @@ def get_json(url, params=None):
     except ValueError as exc:
         raise RuntimeError("ESPN returned invalid JSON") from exc
 
-
 def normalize(value):
     value = str(value or "").lower().strip()
     value = re.sub(r"[^a-z0-9]+", " ", value)
@@ -69,7 +74,6 @@ def normalize(value):
     while words and words[-1] == "fc":
         words.pop()
     return " ".join(words)
-
 
 def team_score(team, requested):
     """
@@ -253,13 +257,11 @@ def event_key(event):
         ]
     )
 
-
 def extract_events(data):
     events = data.get("events", [])
     if isinstance(events, list):
         return events
     return []
-
 
 def get_current_soccer_schedule(team_id):
     """Retrieve the current/upcoming soccer schedule.
@@ -297,7 +299,6 @@ def get_current_soccer_schedule(team_id):
 
     return filter_current_events(merge_schedules(*schedules))
 
-
 def filter_current_events(schedule):
     """Keep only events occurring today or later."""
     today = datetime.now().astimezone().date()
@@ -312,6 +313,210 @@ def filter_current_events(schedule):
 
     return {"events": events}
 
+def get_current_hockey_schedule(team_id):
+    """Retrieve the current/upcoming NHL regular-season schedule.
+
+    ESPN's NHL team schedule endpoint returns the full season when given
+    both the ESPN season number and ``seasontype=2``.  The NHL season number
+    is discovered from ESPN's own Core API calendar instead of being
+    hard-coded or inferred from a September cutoff.
+    """
+    calendar_url = (
+        f"{CORE_BASE}/sports/hockey/leagues/nhl/calendar/ondays"
+    )
+
+    calendar = get_json(
+        calendar_url,
+        {"lang": "en", "region": "us"},
+    )
+
+    season_ref = calendar.get("season", {}).get("$ref", "")
+    match = re.search(r"/seasons/(\d+)(?:\?|$)", season_ref)
+
+    if not match:
+        raise RuntimeError(
+            "ESPN NHL calendar did not provide a season number"
+        )
+
+    season = int(match.group(1))
+
+    schedule = get_full_schedule(
+        "hockey",
+        "nhl",
+        team_id,
+        season=season,
+        seasontype=2,
+    )
+
+    return filter_current_events(schedule)
+
+def get_current_nba_schedule(team_id):
+    """Retrieve the current/upcoming NBA schedule."""
+    today = datetime.now().date()
+
+    # ESPN labels NBA seasons by the year in which they end.
+    season = today.year if today.month <= 6 else today.year + 1
+
+    schedule = get_full_schedule(
+        "basketball",
+        "nba",
+        team_id,
+        season=season,
+    )
+
+    return filter_current_events(schedule)
+
+
+def get_current_wnba_schedule(team_id):
+    """Retrieve the current/upcoming WNBA schedule."""
+    schedule = get_full_schedule(
+        "basketball",
+        "wnba",
+        team_id,
+    )
+    return filter_current_events(schedule)
+
+def get_current_nfl_schedule(team_id):
+    """Retrieve the current/upcoming NFL schedule."""
+    schedule = get_full_schedule(
+        "football",
+        "nfl",
+        team_id,
+    )
+    return filter_current_events(schedule)
+
+def get_current_ncaa_football_schedule(team_id):
+    """Retrieve the current/upcoming NCAA football schedule."""
+    schedule = get_full_schedule(
+        "football",
+        "college-football",
+        team_id,
+    )
+    return filter_current_events(schedule)
+
+def get_current_mlb_schedule(team_id):
+    """Retrieve the current/upcoming MLB schedule."""
+    schedule = get_full_schedule(
+        "baseball",
+        "mlb",
+        team_id,
+    )
+    return filter_current_events(schedule)
+
+def get_current_ncaa_baseball_schedule(team_id):
+    """Retrieve the current/upcoming NCAA baseball schedule."""
+    schedule = get_full_schedule(
+        "baseball",
+        "college-baseball",
+        team_id,
+    )
+    return filter_current_events(schedule)
+
+def get_current_nhl_schedule(team_id):
+    """Retrieve the current/upcoming NHL regular-season schedule.
+
+    ESPN's NHL season numbering and preseason/postseason behavior are
+    different from most other sports. The current season is discovered
+    from ESPN's Core calendar, then the regular-season type is requested
+    explicitly.
+    """
+    core_base = "https://sports.core.api.espn.com/v2"
+
+    calendar_url = (
+        f"{core_base}/sports/hockey/leagues/nhl/calendar/ondays"
+    )
+
+    calendar = get_json(
+        calendar_url,
+        {"lang": "en", "region": "us"},
+    )
+
+    season_ref = calendar.get("season", {}).get("$ref", "")
+    match = re.search(r"/seasons/(\d+)(?:\?|$)", season_ref)
+
+    if not match:
+        raise RuntimeError(
+            "ESPN NHL calendar did not provide a season number"
+        )
+
+    season = int(match.group(1))
+
+    schedule = get_full_schedule(
+        "hockey",
+        "nhl",
+        team_id,
+        season=season,
+        seasontype=2,
+    )
+
+    return filter_current_events(schedule)
+
+def get_current_college_hockey_schedule(team_id):
+    """Retrieve the current/upcoming NCAA hockey schedule."""
+    schedule = get_full_schedule(
+        "hockey",
+        "mens-college-hockey",
+        team_id,
+    )
+    return filter_current_events(schedule)
+
+# Explicit league handlers keep sport-specific behavior isolated.
+# Adding or changing one league should not require editing another.
+SCHEDULE_HANDLERS = {
+    ("soccer", "eng.1"): get_current_soccer_schedule,
+    ("soccer", "esp.1"): get_current_soccer_schedule,
+    ("soccer", "ger.1"): get_current_soccer_schedule,
+    ("soccer", "ita.1"): get_current_soccer_schedule,
+    ("soccer", "fra.1"): get_current_soccer_schedule,
+    ("soccer", "ned.1"): get_current_soccer_schedule,
+    ("soccer", "por.1"): get_current_soccer_schedule,
+    ("soccer", "sco.1"): get_current_soccer_schedule,
+    ("soccer", "bel.1"): get_current_soccer_schedule,
+    ("soccer", "tur.1"): get_current_soccer_schedule,
+    ("soccer", "usa.1"): get_current_soccer_schedule,
+    ("soccer", "usa.nwsl"): get_current_soccer_schedule,
+    ("soccer", "mex.1"): get_current_soccer_schedule,
+    ("soccer", "uefa.champions"): get_current_soccer_schedule,
+    ("soccer", "uefa.europa"): get_current_soccer_schedule,
+    ("soccer", "uefa.europa.conf"): get_current_soccer_schedule,
+    ("soccer", "club.friendly"): get_current_soccer_schedule,
+
+    ("basketball", "nba"): get_current_nba_schedule,
+    ("basketball", "wnba"): get_current_wnba_schedule,
+
+    ("football", "nfl"): get_current_nfl_schedule,
+    ("football", "college-football"): get_current_ncaa_football_schedule,
+
+    ("hockey", "nhl"): get_current_nhl_schedule,
+    ("hockey", "mens-college-hockey"): get_current_college_hockey_schedule,
+
+    ("baseball", "mlb"): get_current_mlb_schedule,
+    ("baseball", "college-baseball"): get_current_ncaa_baseball_schedule,
+}
+
+def get_generic_current_schedule(sport, league, team_id):
+    """Generic fallback for routes without a dedicated handler."""
+    schedule = get_full_schedule(
+        sport,
+        league,
+        team_id,
+    )
+
+    return filter_current_events(schedule)
+
+
+def get_schedule(sport, league, team_id):
+    """Route a team to an isolated league-specific schedule handler."""
+    handler = SCHEDULE_HANDLERS.get((sport, league))
+
+    if handler:
+        return handler(team_id)
+
+    return get_generic_current_schedule(
+        sport,
+        league,
+        team_id,
+    )
 
 def get_schedule(sport, league, team_id):
     """Retrieve today's and future events without scanning historical scores."""
@@ -330,7 +535,6 @@ def get_schedule(sport, league, team_id):
         team_id,
         None,
     )
-
     if sport in {"football", "basketball", "hockey", "baseball"}:
         return filter_current_events(schedule)
 
@@ -341,6 +545,7 @@ def get_full_schedule(
     league,
     team_id,
     season=None,
+    seasontype=None,
 ):
     """
     Retrieve the full team schedule.
@@ -355,13 +560,19 @@ def get_full_schedule(
     We try the full/cross-competition endpoint first for soccer,
     then fall back to the normal team schedule endpoint.
 
-    For non-soccer sports, the normal team schedule endpoint is
-    used unless the sport has a dedicated season-type handler.
+    League-specific handlers decide whether a season or season type
+    is required. This function only handles the ESPN endpoint call.
+
+    ``season`` and ``seasontype`` are passed through when supplied.
+    NHL uses ``seasontype=2`` for the regular season.
     """
     params = {}
 
-    if season:
+    if season is not None:
         params["season"] = season
+
+    if seasontype is not None:
+        params["seasontype"] = seasontype
 
     if sport == "soccer":
         # This is the endpoint used by ESPN's soccer fixtures page.
@@ -371,7 +582,6 @@ def get_full_schedule(
             f"{WEB_BASE}/sports/soccer/all/"
             f"teams/{team_id}/schedule"
         )
-
         fixture_params = dict(params)
         fixture_params["fixture"] = "true"
 
@@ -407,9 +617,7 @@ def get_full_schedule(
         f"{SITE_BASE}/sports/{sport}/{league}/"
         f"teams/{team_id}/schedule"
     )
-
     return get_json(url, params)
-
 
 def merge_schedules(*schedules):
     """
@@ -428,6 +636,41 @@ def merge_schedules(*schedules):
 
     return {"events": result}
 
+def get_broadcasts(event):
+    """Return current U.S. broadcast names from ESPN event data."""
+    broadcasts = []
+
+    for competition in event.get("competitions", []):
+        for broadcast in competition.get("broadcasts", []):
+            if broadcast.get("region") != "us":
+                continue
+
+            media = broadcast.get("media", {})
+            name = media.get("shortName") or media.get("name")
+            if not name:
+                continue
+
+            broadcast_type = broadcast.get("type", {})
+            kind = (
+                broadcast_type.get("shortName")
+                or broadcast_type.get("name")
+                or ""
+            )
+            item = {
+                "name": name,
+                "type": kind,
+                "region": "us",
+            }
+            if item not in broadcasts:
+                broadcasts.append(item)
+
+    return broadcasts
+
+def get_broadcast_names(event):
+    """Return unique U.S. broadcast names for display."""
+    return list(dict.fromkeys(
+        broadcast["name"] for broadcast in get_broadcasts(event)
+    ))
 
 def get_venue(event):
     competitions = event.get("competitions", [])
@@ -436,7 +679,6 @@ def get_venue(event):
 
     venue = competitions[0].get("venue", {})
     return venue.get("fullName", "")
-
 
 def format_event(event):
     dt = parse_datetime(event.get("date"))
@@ -451,19 +693,21 @@ def format_event(event):
 
     text = f"{date} {time}  {event.get('name', 'Unknown event')}"
 
+    broadcast_names = get_broadcast_names(event)
+    if broadcast_names:
+        text += f"  [TV: {', '.join(broadcast_names)}]"
+
     venue = get_venue(event)
     if venue:
         text += f"  @ {venue}"
 
     return text
 
-
 def safe_filename(name):
     return (
         re.sub(r"[^\w.-]+", "_", name).strip("_")
         or "schedule"
     )
-
 
 def create_ical(
     team,
@@ -479,7 +723,6 @@ def create_ical(
         or team.get("name")
         or "ESPN Schedule"
     )
-
     calendar.add("prodid", "-//ESPN Schedule//EN")
     calendar.add("version", "2.0")
     calendar.add("calscale", "GREGORIAN")
@@ -488,7 +731,6 @@ def create_ical(
         "X-WR-CALDESC",
         f"{team_name} schedule from ESPN",
     )
-
     for event_data in schedule.get("events", []):
         dt = parse_datetime(event_data.get("date"))
         if dt is None:
@@ -502,13 +744,15 @@ def create_ical(
                 "uid",
                 f"espn-{event_id}@espn.py",
             )
-
         event.add("dtstart", dt)
 
-        event.add(
-            "summary",
-            event_data.get("name", "ESPN Event"),
-        )
+        summary = event_data.get("name", "ESPN Event")
+
+        broadcast_names = get_broadcast_names(event_data)
+        if broadcast_names:
+            summary += f" [TV: {', '.join(broadcast_names)}]"
+
+        event.add("summary", summary)
 
         venue = get_venue(event_data)
         if venue:
@@ -518,24 +762,25 @@ def create_ical(
             f"Sport: {sport}",
             f"League: {league}",
         ]
-
+        broadcast_names = get_broadcast_names(event_data)
+        if broadcast_names:
+            description.append(
+                f"TV: {', '.join(broadcast_names)}"
+            )
         short_name = event_data.get("shortName")
         if short_name:
             description.insert(
                 0,
                 f"Game: {short_name}",
             )
-
         event.add(
             "description",
             "\n".join(description),
         )
-
         calendar.add_component(event)
 
     with Path(output_path).open("wb") as f:
         f.write(calendar.to_ical())
-
 
 def parse_args():
     sports = sorted({sport for sport, _, _ in ESPN_ROUTES})
@@ -543,7 +788,6 @@ def parse_args():
     sport_lines = [
         "  " + ", ".join(sports)
     ]
-
     parser = argparse.ArgumentParser(
         description="Find a team and retrieve its ESPN schedule.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -557,22 +801,18 @@ def parse_args():
             '  %(prog)s --team "Liverpool" --ical\n'
         ),
     )
-
     parser.add_argument(
         "--team",
         required=True,
         metavar="TEAM",
         help="Team name to search for.",
     )
-
     parser.add_argument(
         "--sport",
         choices=sports,
         metavar="SPORT",
         help="Limit the search to one sport.",
     )
-
-
     parser.add_argument(
         "--ical",
         nargs="?",
@@ -588,10 +828,7 @@ def parse_args():
         metavar="FILE",
         help="Create a JSON file in the json/ directory; default filename is TEAM.json.",
     )
-
-
     return parser.parse_args()
-
 
 def print_team_info(result):
     team = result["team"]
@@ -612,7 +849,6 @@ def sort_events(schedule):
         ),
     )
 
-
 def print_schedule(events):
     print()
     print("Schedule:")
@@ -626,11 +862,14 @@ def print_schedule(events):
 
 
 def build_ical_output(args, team):
-    return (
+    ical_dir = Path("ical")
+    ical_dir.mkdir(parents=True, exist_ok=True)
+
+    filename = (
         args.ical
         or f"{safe_filename(team.get('displayName', 'schedule'))}.ics"
     )
-
+    return str(ical_dir / Path(filename).name)
 
 def create_ical_if_requested(
     args,
@@ -646,7 +885,6 @@ def create_ical_if_requested(
         args,
         team,
     )
-
     create_ical(
         team,
         sport,
@@ -654,9 +892,7 @@ def create_ical_if_requested(
         schedule,
         output_path,
     )
-
     print(f"iCalendar: {output_path}")
-
 
 def handle_schedule_result(events, args, team, sport, league, schedule):
     if not events:
@@ -673,17 +909,10 @@ def handle_schedule_result(events, args, team, sport, league, schedule):
         schedule,
     )
 
-
-
-
-
-
 def no_events_check(events):
     if not events:
         print("No events found.")
         sys.exit(0)
-
-
 
 def create_json_if_requested(args, team, sport, league, schedule):
     if args.json is None:
@@ -706,15 +935,16 @@ def create_json_if_requested(args, team, sport, league, schedule):
         "league": league,
         "events": schedule.get("events", []),
     }
+    for event in data["events"]:
+        broadcasts = get_broadcasts(event)
+        if broadcasts:
+            event["broadcasts"] = broadcasts
 
     output_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
-
     print(f"Created JSON: {output_path}")
-
-
 
 def main():
     args = parse_args()
@@ -725,7 +955,6 @@ def main():
         args.team,
         args.sport,
     )
-
     print_team_info(result)
 
     team = result["team"]
@@ -751,7 +980,6 @@ def main():
         league,
         schedule,
     )
-
     create_json_if_requested(
         args,
         team,
@@ -759,7 +987,6 @@ def main():
         league,
         schedule,
     )
-
     print(f"API requests: {API_PINGS}")
 
 
@@ -769,3 +996,5 @@ if __name__ == "__main__":
     except RuntimeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
+
+
