@@ -228,7 +228,6 @@ def find_team(team_name, sport_filter=None):
 
     return candidates[0]
 
-
 def parse_datetime(value):
     if not value:
         return None
@@ -241,7 +240,6 @@ def parse_datetime(value):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt
-
 
 def event_key(event):
     event_id = event.get("id")
