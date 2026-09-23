@@ -150,7 +150,6 @@ def team_score(team, requested):
 
     return best
 
-
 def get_teams(sport, league):
     url = f"{SITE_BASE}/sports/{sport}/{league}/teams"
     data = get_json(url, {"limit": 500})
@@ -163,7 +162,6 @@ def get_teams(sport, league):
                 if isinstance(team, dict) and team.get("id"):
                     teams.append(team)
     return teams
-
 
 def find_team(team_name, sport_filter=None):
     """
@@ -363,7 +361,6 @@ def get_current_nba_schedule(team_id):
         team_id,
         season=season,
     )
-
     return filter_current_events(schedule)
 
 
@@ -425,12 +422,10 @@ def get_current_nhl_schedule(team_id):
     calendar_url = (
         f"{core_base}/sports/hockey/leagues/nhl/calendar/ondays"
     )
-
     calendar = get_json(
         calendar_url,
         {"lang": "en", "region": "us"},
     )
-
     season_ref = calendar.get("season", {}).get("$ref", "")
     match = re.search(r"/seasons/(\d+)(?:\?|$)", season_ref)
 
