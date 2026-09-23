@@ -13,12 +13,12 @@ League: MLB
 
 Schedule:
 --------------------------------------------------------------------------------
-2026-09-22 17:05  New York Mets at Texas Rangers  [TV: MLB.TV, Rangers Sports Network, SNY]  @ Globe Life Field
-2026-09-23 17:05  New York Mets at Texas Rangers  [TV: MLB.TV, Rangers Sports Network, SNY, ERADM]  @ Globe Life Field
-2026-09-24 11:35  New York Mets at Texas Rangers  [TV: MLB.TV, Rangers Sports Network, SNY]  @ Globe Life Field
-2026-09-25 15:45  New York Mets at Washington Nationals  [TV: MLB.TV, Nationals.TV, WPIX]  @ Nationals Park
-2026-09-26 13:05  New York Mets at Washington Nationals  [TV: ESPN Unlmtd, MLB.TV, Nationals.TV, SNY]  @ Nationals Park
-2026-09-27 12:05  New York Mets at Washington Nationals  [TV: MLB.TV, Nationals.TV, SNY]  @ Nationals Park
+2026-09-22 17:05  New York Mets at Texas Rangers  [TV: MLB.TV, SNY]  @ Globe Life Field
+2026-09-23 17:05  New York Mets at Texas Rangers  [TV: MLB.TV, SNY, ERADM]  @ Globe Life Field
+2026-09-24 11:35  New York Mets at Texas Rangers  [TV: MLB.TV, SNY]  @ Globe Life Field
+2026-09-25 15:45  New York Mets at Washington Nationals  [TV: MLB.TV, WPIX]  @ Nationals Park
+2026-09-26 13:05  New York Mets at Washington Nationals  [TV: ESPN, MLB.TV, SNY]  @ Nationals Park
+2026-09-27 12:05  New York Mets at Washington Nationals  [TV: MLB.TV, SNY]  @ Nationals Park
 
 Found 6 event(s).
 Created JSON: json/New_York_Mets.json
