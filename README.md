@@ -3,7 +3,7 @@
 Find a sports team through ESPN and retrieve its **current and upcoming schedule**.
 
 ```text
-$ python3 espn2ics.py --team "Mets" --sport baseball --json
+$ python3 espn2ics.py --team "Mets" --sport baseball --ical
 
 Finding team: Mets
 Team: New York Mets
@@ -21,7 +21,7 @@ Schedule:
 2026-09-27 12:05  New York Mets at Washington Nationals  [TV: MLB.TV]  @ Nationals Park
 
 Found 6 event(s).
-Created JSON: json/New_York_Mets.json
+Created JSON: ical/New_York_Mets.ical
 API requests: 3
 ```
 
