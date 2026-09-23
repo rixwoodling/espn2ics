@@ -1,89 +1,44 @@
 # ESPN Schedule to iCalendar
 
-A small Python command-line tool for finding sports teams through ESPN and retrieving their **current and upcoming schedules**, with optional iCalendar and JSON output.
-
-## `espn2ics.py`
-
-The script searches the supported ESPN sports and retrieves events from **today forward**.
-
-It does not require a season argument and does not scan historical scoreboard dates to reconstruct a schedule.
-
-The goal is simple: give it a team name, let ESPN determine the team and competition, and get a usable current/upcoming schedule without having to manually know ESPN's internal league IDs.
-
-### What's new in current version
-
-Current version refactors schedule retrieval so that **league-specific behavior is isolated**.
-
-Instead of putting sport-specific ESPN logic into one large conditional function, current version routes each sport/league through its own schedule handler:
+Find a sports team through ESPN and retrieve its **current and upcoming schedule**.
 
 ```text
-get_schedule()
-    ↓
-SCHEDULE_HANDLERS
-    ├── NBA
-    ├── WNBA
-    ├── NFL
-    ├── NCAA Football
-    ├── NHL
-    ├── NCAA Hockey
-    ├── MLB
-    ├── NCAA Baseball
-    └── Soccer
+$ python3 espn2ics.py --team "Mets" --sport baseball --json
+
+Finding team: Mets
+Team: New York Mets
+Team ID: 21
+Sport: baseball
+League: MLB
+
+Schedule:
+--------------------------------------------------------------------------------
+2026-09-22 17:05  New York Mets at Texas Rangers  [TV: MLB.TV, Rangers Sports Network, SNY]  @ Globe Life Field
+2026-09-23 17:05  New York Mets at Texas Rangers  [TV: MLB.TV, Rangers Sports Network, SNY, ERADM]  @ Globe Life Field
+2026-09-24 11:35  New York Mets at Texas Rangers  [TV: MLB.TV, Rangers Sports Network, SNY]  @ Globe Life Field
+2026-09-25 15:45  New York Mets at Washington Nationals  [TV: MLB.TV, Nationals.TV, WPIX]  @ Nationals Park
+2026-09-26 13:05  New York Mets at Washington Nationals  [TV: ESPN Unlmtd, MLB.TV, Nationals.TV, SNY]  @ Nationals Park
+2026-09-27 12:05  New York Mets at Washington Nationals  [TV: MLB.TV, Nationals.TV, SNY]  @ Nationals Park
+
+Found 6 event(s).
+Created JSON: json/New_York_Mets.json
+API requests: 3
 ```
 
-This means changes to one league's ESPN endpoint should not require changes to another league's schedule logic.
-
-Shared functionality remains centralized:
-
-- ESPN API requests
-- team discovery
-- date parsing
-- current/future filtering
-- event sorting
-- TV/broadcast extraction
-- venue extraction
-- console formatting
-- JSON output
-- iCalendar output
-- API request counting
-
-### Basic usage
+## Usage
 
 ```bash
 python3 espn2ics.py --team "Liverpool"
 ```
 
-Example:
-
-```text
-Finding team: Liverpool
-Team: Liverpool
-Team ID: 364
-Sport: soccer
-League: English Premier League
-
-Schedule:
---------------------------------------------------------------------------------
-2026-08-29 04:30  Nottingham Forest at Liverpool  @ Anfield
-...
-Found 37 event(s).
-API requests: 8
-```
-
-The schedule is filtered to **today and future events**. Completed events are not included.
-
-## Sport selection
-
-`--sport` is optional.
-
-Use it when a team name is shared by multiple sports:
+Use `--sport` when needed:
 
 ```bash
 python3 espn2ics.py --team "Oregon Ducks" --sport football
 python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 ```
 
-Currently supported sports:
+Supported sports:
 
 ```text
 baseball
@@ -93,317 +48,128 @@ hockey
 soccer
 ```
 
-Rugby is **not supported**.
-
-Without `--sport`, the script searches all configured leagues and uses the best team match. If different ESPN team IDs match, it reports the ambiguity instead of guessing.
-
-## League-specific schedule handling
-
-current version uses a central handler table:
-
-```python
-SCHEDULE_HANDLERS = {
-    ("basketball", "nba"): get_current_nba_schedule,
-    ("basketball", "wnba"): get_current_wnba_schedule,
-
-    ("football", "nfl"): get_current_nfl_schedule,
-    ("football", "college-football"): get_current_ncaa_football_schedule,
-
-    ("hockey", "nhl"): get_current_nhl_schedule,
-    ("hockey", "mens-college-hockey"): get_current_college_hockey_schedule,
-
-    ("baseball", "mlb"): get_current_mlb_schedule,
-    ("baseball", "college-baseball"): get_current_ncaa_baseball_schedule,
-
-    # Soccer competitions use the soccer schedule handler.
-}
-```
-
-The dispatcher selects the handler using:
-
-```text
-(sport, league)
-```
-
-If a league does not have a dedicated handler, current version falls back to the generic current-schedule handler.
-
-### Why this matters
-
-ESPN does not expose every sport the same way.
-
-For example:
-
-- NBA season selection differs from NHL.
-- NHL requires explicit regular-season handling.
-- Soccer can span multiple competitions.
-- College sports have their own ESPN league routes.
-- Some leagues expose different amounts of future schedule data.
-
-Keeping those differences inside isolated handlers makes the project easier to extend and reduces the chance that fixing one sport breaks another.
-
-## API request count
-
-The script reports the number of ESPN API requests made during each run:
-
-```text
-Found 37 event(s).
-API requests: 8
-```
-
-This makes it possible to measure and optimize the schedule lookup rather than blindly adding more endpoint calls.
-
-The goal is to retrieve useful schedule coverage with a small number of targeted requests.
-
-The script deliberately avoids scanning historical scoreboard dates just to reconstruct a current schedule.
+The schedule contains **today and future events only**.
 
 ## iCalendar
 
-Create an `.ics` file:
+Create an iCalendar file:
 
 ```bash
 python3 espn2ics.py --team "Liverpool" --ical
 ```
 
-Specify the filename:
-
-```bash
-python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
-```
-
-iCalendar files are automatically written to the `ical/` directory.
-
-For example:
+Files are written to `ical/`:
 
 ```text
 ical/
 └── Liverpool.ics
 ```
 
-The calendar contains:
+Specify a filename:
 
-- event date/time
-- event name
-- venue
-- sport
-- league
-- TV/broadcast information when ESPN provides it
+```bash
+python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
+```
+
+Calendar events include the venue and TV information when ESPN provides it.
 
 ## JSON
 
-Create a JSON copy of the schedule:
+Create JSON output:
 
 ```bash
 python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
 
-JSON files are automatically written to the `json/` directory using the team name:
+Files are written to `json/`:
 
 ```text
 json/
 └── Portland_Timbers.json
 ```
 
-A custom filename can also be specified:
+Specify a filename:
 
 ```bash
 python3 espn2ics.py --team "Portland Timbers" --sport soccer --json timbers.json
 ```
 
-The JSON output is written to the file and is not printed to stdout.
+## Sports
 
-Broadcast information is included when ESPN supplies U.S. broadcast metadata.
+The script currently supports:
 
-## Soccer
+- MLB
+- NCAA Baseball
+- NBA
+- WNBA
+- NCAA Basketball
+- NFL
+- NCAA Football
+- NHL
+- NCAA Hockey
+- Soccer
 
-Soccer requires special handling because a club can appear in multiple ESPN soccer leagues or competitions.
+Soccer competitions include major domestic leagues, MLS, NWSL, Liga MX, UEFA competitions, and Club Friendly matches.
 
-For soccer, the script uses ESPN's broader schedule endpoints and configured competition routes, then merges and deduplicates returned events.
+Rugby is not currently supported.
 
-This is intended to capture league, cup, continental, playoff/knockout, and friendly fixtures when ESPN exposes them through its schedule data.
+## Schedule handling
 
-Configured soccer competitions include:
+Sport and league-specific ESPN behavior is isolated in dedicated schedule handlers.
 
-```text
-English Premier League
-La Liga
-Bundesliga
-Serie A
-Ligue 1
-Eredivisie
-Primeira Liga
-Scottish Premiership
-Belgian Pro League
-Turkish Super Lig
-MLS
-NWSL
-Liga MX
-UEFA Champions League
-UEFA Europa League
-UEFA Conference League
-Club Friendly
-```
+This is especially important for leagues such as:
 
-This is particularly useful for clubs such as Manchester City, where league matches and Club Friendly matches may be exposed through different ESPN routes.
+- **NBA**, which uses dynamic season selection
+- **NHL**, which requires ESPN's current season and regular-season type
+- **Soccer**, where a club can appear across multiple competitions
 
-The script only keeps events from today forward.
+The rest of the application uses shared code for team discovery, filtering, formatting, JSON, iCalendar, and API request counting.
 
-It does not walk backward through scoreboard dates looking for completed matches.
+## API requests
 
-## NBA
-
-NBA schedule retrieval has its own handler in current version.
-
-ESPN labels NBA seasons by the year in which they end, so current version determines the appropriate season dynamically:
+Each run reports the number of ESPN API requests:
 
 ```text
-January through June
-    → current calendar year
-
-July through December
-    → following calendar year
+Found 6 event(s).
+API requests: 3
 ```
 
-No `--season` argument is required.
-
-Example:
-
-```bash
-python3 espn2ics.py --team "Portland Trail Blazers" --sport basketball
-```
-
-## NHL
-
-NHL schedule retrieval also has its own isolated handler.
-
-NHL seasons are discovered dynamically from ESPN's Core calendar rather than relying on a hard-coded season number.
-
-The regular season is explicitly requested using ESPN's regular-season season type.
-
-Example:
-
-```bash
-python3 espn2ics.py --team "Boston Bruins" --sport hockey
-```
-
-This allows current version to retrieve the current/upcoming regular-season schedule without requiring a manually supplied NHL season.
-
-## Team discovery
-
-Team discovery is separate from schedule retrieval.
-
-The script:
-
-1. Searches the configured ESPN league routes.
-2. Scores candidate team-name matches.
-3. Deduplicates candidates by ESPN team ID.
-4. Selects the strongest match.
-5. Reports ambiguity instead of guessing when multiple distinct ESPN teams match equally.
-
-Example:
-
-```bash
-python3 espn2ics.py --team "Portland Trail Blazers" --sport basketball
-```
+The script avoids scanning historical scoreboard dates and is designed to retrieve current/upcoming schedules with a small number of requests.
 
 ## Installation
-
-Create a virtual environment:
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-```
-
-Install the dependencies:
-
-```bash
 python3 -m pip install requests icalendar
 ```
 
-Then run:
+Then:
 
 ```bash
 python3 espn2ics.py --help
 ```
 
-## Pipeline
-
-The command-line workflow is intentionally kept as a simple pipeline:
-
-```text
-parse_args()
-    ↓
-find_team()
-    ↓
-print_team_info()
-    ↓
-get_schedule()
-    ↓
-league-specific schedule handler
-    ↓
-filter current/future events
-    ↓
-sort_events()
-    ↓
-print_schedule()
-    ↓
-create_ical_if_requested()
-    ↓
-create_json_if_requested()
-    ↓
-print API request count
-```
-
-Sport/league-specific ESPN behavior is kept inside the schedule retrieval layer rather than spreading ESPN-specific conditionals through `main()`.
-
-## ESPN API notes
-
-This project uses ESPN's publicly accessible site/core API endpoints rather than an official paid developer API.
-
-ESPN's endpoints are not guaranteed to remain stable.
-
-Some competitions use different endpoints or expose incomplete current/future data. The script therefore treats:
-
-- team discovery
-- schedule routing
-- schedule retrieval
-- output formatting
-
-as separate concerns.
-
-Competition-specific behavior belongs in the appropriate schedule handler.
-
-Because this tool is designed as a **current/upcoming schedule finder**, it intentionally does not provide a `--season` option or attempt to reconstruct historical seasons.
-
 ## Examples
 
 ```bash
-# EPL
-python3 espn2ics.py --team "Liverpool"
-
-# NCAA football
-python3 espn2ics.py --team "Oregon Ducks" --sport football
-
-# NCAA baseball
-python3 espn2ics.py --team "Oregon Ducks" --sport baseball
-
-# NWSL
-python3 espn2ics.py --team "Portland Thorns" --sport soccer
-
-# WNBA
-python3 espn2ics.py --team "Portland Fire" --sport basketball
+# MLB
+python3 espn2ics.py --team "Mets" --sport baseball
 
 # NBA
 python3 espn2ics.py --team "Portland Trail Blazers" --sport basketball
 
-# NHL
-python3 espn2ics.py --team "Boston Bruins" --sport hockey
-
 # NFL
 python3 espn2ics.py --team "Seattle Seahawks" --sport football
 
-# MLB
-python3 espn2ics.py --team "Seattle Mariners" --sport baseball
+# NCAA Football
+python3 espn2ics.py --team "Oregon Ducks" --sport football
+
+# NHL
+python3 espn2ics.py --team "Boston Bruins" --sport hockey
+
+# NWSL
+python3 espn2ics.py --team "Portland Thorns" --sport soccer
 
 # iCalendar
 python3 espn2ics.py --team "Liverpool" --ical
@@ -412,17 +178,8 @@ python3 espn2ics.py --team "Liverpool" --ical
 python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
 
-## Output directories
+## ESPN API
 
-When output is requested, current version keeps generated files organized:
+This project uses ESPN's publicly accessible site/core API endpoints.
 
-```text
-project/
-├── espn2ics.py
-├── ical/
-│   └── Team_Name.ics
-└── json/
-    └── Team_Name.json
-```
-
-The console remains focused on the human-readable schedule while JSON and iCalendar are written to their respective directories.
+ESPN does not provide a guaranteed stable public API for this use case, so endpoint behavior may change over time.
