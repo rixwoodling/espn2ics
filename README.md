@@ -2,7 +2,7 @@
 
 A small Python command-line tool for finding sports teams through ESPN and retrieving their **current and upcoming schedules**, with optional iCalendar and JSON output.
 
-## `espn2ics_v6.py`
+## `espn2ics.py`
 
 The script searches the supported ESPN sports and retrieves events from **today forward**.
 
@@ -10,11 +10,11 @@ It does not require a season argument and does not scan historical scoreboard da
 
 The goal is simple: give it a team name, let ESPN determine the team and competition, and get a usable current/upcoming schedule without having to manually know ESPN's internal league IDs.
 
-### What's new in v6
+### What's new in current version
 
-Version 6 refactors schedule retrieval so that **league-specific behavior is isolated**.
+Current version refactors schedule retrieval so that **league-specific behavior is isolated**.
 
-Instead of putting sport-specific ESPN logic into one large conditional function, v6 routes each sport/league through its own schedule handler:
+Instead of putting sport-specific ESPN logic into one large conditional function, current version routes each sport/league through its own schedule handler:
 
 ```text
 get_schedule()
@@ -50,7 +50,7 @@ Shared functionality remains centralized:
 ### Basic usage
 
 ```bash
-python3 espn2ics_v6.py --team "Liverpool"
+python3 espn2ics.py --team "Liverpool"
 ```
 
 Example:
@@ -79,8 +79,8 @@ The schedule is filtered to **today and future events**. Completed events are no
 Use it when a team name is shared by multiple sports:
 
 ```bash
-python3 espn2ics_v6.py --team "Oregon Ducks" --sport football
-python3 espn2ics_v6.py --team "Oregon Ducks" --sport baseball
+python3 espn2ics.py --team "Oregon Ducks" --sport football
+python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 ```
 
 Currently supported sports:
@@ -99,7 +99,7 @@ Without `--sport`, the script searches all configured leagues and uses the best 
 
 ## League-specific schedule handling
 
-v6 uses a central handler table:
+current version uses a central handler table:
 
 ```python
 SCHEDULE_HANDLERS = {
@@ -125,7 +125,7 @@ The dispatcher selects the handler using:
 (sport, league)
 ```
 
-If a league does not have a dedicated handler, v6 falls back to the generic current-schedule handler.
+If a league does not have a dedicated handler, current version falls back to the generic current-schedule handler.
 
 ### Why this matters
 
@@ -161,13 +161,13 @@ The script deliberately avoids scanning historical scoreboard dates just to reco
 Create an `.ics` file:
 
 ```bash
-python3 espn2ics_v6.py --team "Liverpool" --ical
+python3 espn2ics.py --team "Liverpool" --ical
 ```
 
 Specify the filename:
 
 ```bash
-python3 espn2ics_v6.py --team "Liverpool" --ical Liverpool.ics
+python3 espn2ics.py --team "Liverpool" --ical Liverpool.ics
 ```
 
 iCalendar files are automatically written to the `ical/` directory.
@@ -193,7 +193,7 @@ The calendar contains:
 Create a JSON copy of the schedule:
 
 ```bash
-python3 espn2ics_v6.py --team "Portland Timbers" --sport soccer --json
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
 
 JSON files are automatically written to the `json/` directory using the team name:
@@ -206,7 +206,7 @@ json/
 A custom filename can also be specified:
 
 ```bash
-python3 espn2ics_v6.py --team "Portland Timbers" --sport soccer --json timbers.json
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json timbers.json
 ```
 
 The JSON output is written to the file and is not printed to stdout.
@@ -251,9 +251,9 @@ It does not walk backward through scoreboard dates looking for completed matches
 
 ## NBA
 
-NBA schedule retrieval has its own handler in v6.
+NBA schedule retrieval has its own handler in current version.
 
-ESPN labels NBA seasons by the year in which they end, so v6 determines the appropriate season dynamically:
+ESPN labels NBA seasons by the year in which they end, so current version determines the appropriate season dynamically:
 
 ```text
 January through June
@@ -268,7 +268,7 @@ No `--season` argument is required.
 Example:
 
 ```bash
-python3 espn2ics_v6.py --team "Portland Trail Blazers" --sport basketball
+python3 espn2ics.py --team "Portland Trail Blazers" --sport basketball
 ```
 
 ## NHL
@@ -282,10 +282,10 @@ The regular season is explicitly requested using ESPN's regular-season season ty
 Example:
 
 ```bash
-python3 espn2ics_v6.py --team "Boston Bruins" --sport hockey
+python3 espn2ics.py --team "Boston Bruins" --sport hockey
 ```
 
-This allows v6 to retrieve the current/upcoming regular-season schedule without requiring a manually supplied NHL season.
+This allows current version to retrieve the current/upcoming regular-season schedule without requiring a manually supplied NHL season.
 
 ## Team discovery
 
@@ -302,7 +302,7 @@ The script:
 Example:
 
 ```bash
-python3 espn2ics_v6.py --team "Portland Trail Blazers" --sport basketball
+python3 espn2ics.py --team "Portland Trail Blazers" --sport basketball
 ```
 
 ## Installation
@@ -323,7 +323,7 @@ python3 -m pip install requests icalendar
 Then run:
 
 ```bash
-python3 espn2ics_v6.py --help
+python3 espn2ics.py --help
 ```
 
 ## Pipeline
@@ -379,46 +379,46 @@ Because this tool is designed as a **current/upcoming schedule finder**, it inte
 
 ```bash
 # EPL
-python3 espn2ics_v6.py --team "Liverpool"
+python3 espn2ics.py --team "Liverpool"
 
 # NCAA football
-python3 espn2ics_v6.py --team "Oregon Ducks" --sport football
+python3 espn2ics.py --team "Oregon Ducks" --sport football
 
 # NCAA baseball
-python3 espn2ics_v6.py --team "Oregon Ducks" --sport baseball
+python3 espn2ics.py --team "Oregon Ducks" --sport baseball
 
 # NWSL
-python3 espn2ics_v6.py --team "Portland Thorns" --sport soccer
+python3 espn2ics.py --team "Portland Thorns" --sport soccer
 
 # WNBA
-python3 espn2ics_v6.py --team "Portland Fire" --sport basketball
+python3 espn2ics.py --team "Portland Fire" --sport basketball
 
 # NBA
-python3 espn2ics_v6.py --team "Portland Trail Blazers" --sport basketball
+python3 espn2ics.py --team "Portland Trail Blazers" --sport basketball
 
 # NHL
-python3 espn2ics_v6.py --team "Boston Bruins" --sport hockey
+python3 espn2ics.py --team "Boston Bruins" --sport hockey
 
 # NFL
-python3 espn2ics_v6.py --team "Seattle Seahawks" --sport football
+python3 espn2ics.py --team "Seattle Seahawks" --sport football
 
 # MLB
-python3 espn2ics_v6.py --team "Seattle Mariners" --sport baseball
+python3 espn2ics.py --team "Seattle Mariners" --sport baseball
 
 # iCalendar
-python3 espn2ics_v6.py --team "Liverpool" --ical
+python3 espn2ics.py --team "Liverpool" --ical
 
 # JSON
-python3 espn2ics_v6.py --team "Portland Timbers" --sport soccer --json
+python3 espn2ics.py --team "Portland Timbers" --sport soccer --json
 ```
 
 ## Output directories
 
-When output is requested, v6 keeps generated files organized:
+When output is requested, current version keeps generated files organized:
 
 ```text
 project/
-├── espn2ics_v6.py
+├── espn2ics.py
 ├── ical/
 │   └── Team_Name.ics
 └── json/
